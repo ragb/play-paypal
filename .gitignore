@@ -1,0 +1,19 @@
+# Ignore Play! working directory #
+.DS_Store
+bin/
+/db
+.eclipse
+/lib/
+/logs/
+/modules
+/module-code/project/project
+/module-code/project/target
+/module-code/target
+tmp/
+test-result
+server.pid
+*.iml
+*.eml
+/dist/
+.cache
+.idea
