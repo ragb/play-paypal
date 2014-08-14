@@ -2,7 +2,7 @@ name := "play-paypal"
 
 organization := "play-infra"
 
-version := "0.1.0"
+version := "0.1.1"
 
 libraryDependencies ++= Seq(
   ws, cache
