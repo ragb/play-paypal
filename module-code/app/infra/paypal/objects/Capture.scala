@@ -20,7 +20,7 @@ import infra.paypal.format.DateTimeFormat
  * @param links	array of links objects	HATEOAS links related to this request. Assigned in response.
  */
 case class Capture(amount: Amount,
-                   is_final_capture: Boolean = false,
+                   is_final_capture: Option[Boolean] = None,
                    create_time: Option[DateTime] = None,
                    update_time: Option[DateTime] = None,
                    state: Option[SaleState.Value] = None,
