@@ -1,7 +1,5 @@
 package infra.paypal
 
-import _root_.infra.paypal.objects.ErrorObject
-import com.fasterxml.jackson.databind.JsonMappingException
 import play.api.Play
 import play.api.Play.current
 import play.api.cache.Cache
@@ -31,29 +29,28 @@ object Paypal {
           "Accept" -> "application/json",
           "Content-Type" -> "application/x-www-form-urlencoded",
           "Accept-Language" -> "en_US")
-        .post("grant_type=client_credentials").map {
-        resp =>
-          val r = readResponse(resp, AccessToken.format)
+        .post("grant_type=client_credentials").flatMap(readResponse[AccessToken]).map {
+          r =>
           Cache.set(TokenCacheKey, r, Duration(r.expires_in, "second"))
           r
       }
     }
 
-  def post[R] = new {
-    def apply[C](token: AccessToken, resource: String, content: C)(implicit reads: Reads[R], writes: Writes[C], ec: ExecutionContext): Future[R] =
-      getRequest(token, resource).post(writes.writes(content)).map(readResponse(_, reads))
+  def post[R <: Codomain] = new {
+    def apply[C <: Domain](token: AccessToken, resource: String, content: C)(implicit reads: Reads[R], writes: Writes[C], ec: ExecutionContext): Future[R] =
+      getRequest(token, resource).post(writes.writes(content)).flatMap(readResponse[R])
 
-    def apply[C](resource: String, content: C)
+    def apply[C <: Domain](resource: String, content: C)
                 (implicit reads: Reads[R], writes: Writes[C], ec: ExecutionContext): Future[R] =
       requestToken.flatMap {
         apply(_, resource, content)
       }
   }
 
-  def get[R](token: AccessToken, resource: String)(implicit reads: Reads[R], ec: ExecutionContext): Future[R] =
-    getRequest(token, resource).get().map(readResponse(_, reads))
+  def get[R <: Codomain](token: AccessToken, resource: String)(implicit reads: Reads[R], ec: ExecutionContext): Future[R] =
+    getRequest(token, resource).get().flatMap(readResponse[R])
 
-  def get[R](resource: String)(implicit reads: Reads[R], ec: ExecutionContext): Future[R] = requestToken.flatMap {
+  def get[R <: Codomain](resource: String)(implicit reads: Reads[R], ec: ExecutionContext): Future[R] = requestToken.flatMap {
     get(_, resource)
   }
 
@@ -61,28 +58,19 @@ object Paypal {
    * Reads response, parses it into either ApiError, JsonError, or given R type
    *
    * @param resp Webservice call response
-   * @param reads Json reader into R
    * @tparam R Type of successful response
    * @return
    */
-  private def readResponse[R](resp: WSResponse, reads: Reads[R]): R = resp.status match {
-    case i: Int if i >= 200 && i < 300 =>
-      reads.reads(resp.json) match {
+  private def readResponse[R <: Codomain : Reads](resp: WSResponse): Future[R] = errorReader(respReader[R]).applyM(resp)
+
+  def respReader[R: Reads]: WSResponse => R =
+    resp =>
+      implicitly[Reads[R]].reads(resp.json) match {
         case JsSuccess(v, _) => v
         case e: JsError => throw JsonError(resp.status, resp.statusText, e, Some(resp.body))
       }
-    case _ =>
-      try {
-        ErrorObject.format.reads(resp.json) match {
-          case JsSuccess(v, _) =>
-            throw ApiError(resp.status, resp.statusText, v)
-          case e: JsError => throw JsonError(resp.status, resp.statusText, e, Some(resp.body))
-        }
-      } catch {
-        case e: JsonMappingException =>
-          throw FatalError(resp.status, resp.statusText, e)
-      }
-  }
+
+  val errorReader = infra.wscalacl.ApiPostProcess(PaypalError)
 
   private def getRequest(token: AccessToken, resource: String)(implicit ec: ExecutionContext) = WS.url(s"https://$endPoint/v1/$resource")
     .withHeaders(

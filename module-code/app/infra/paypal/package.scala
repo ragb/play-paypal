@@ -33,4 +33,7 @@ package object paypal {
   object Implicits {
     implicit val writesBigDecimal = paypal.writesBigDecimal
   }
+
+  trait Domain
+  trait Codomain
 }

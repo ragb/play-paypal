@@ -1,5 +1,6 @@
 package infra.paypal.objects
 
+import infra.paypal.{Domain, Codomain}
 import org.joda.time.DateTime
 import play.api.libs.json.Json
 import infra.paypal.format.{EnumFormat, DateTimeFormat}
@@ -29,7 +30,7 @@ case class Payment(
                     state: Option[PaymentState.Value] = None,
                     update_time: Option[DateTime] = None,
                     links: Option[Seq[HateoasLink]] = None
-                    )
+                    ) extends Codomain
 
 
 object PaymentState extends Enumeration with EnumFormat {
@@ -56,7 +57,7 @@ object Payment {
 
   implicit val format = Json.format[Payment]
 
-  case class Execute(payer_id: String, transactions: Option[Seq[Amount]] = None)
+  case class Execute(payer_id: String, transactions: Option[Seq[Amount]] = None) extends Domain
 
   implicit val execFormat = Json.format[Execute]
 }

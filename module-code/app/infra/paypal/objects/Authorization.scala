@@ -1,8 +1,9 @@
 package infra.paypal.objects
 
+import infra.paypal.Domain
+import infra.paypal.format.{DateTimeFormat, EnumFormat}
 import org.joda.time.DateTime
 import play.api.libs.json.Json
-import infra.paypal.format.{EnumFormat, DateTimeFormat}
 
 /**
  * @author alari (name.alari@gmail.com)
@@ -28,7 +29,7 @@ case class Authorization(
                           id: Option[String] = None,
                           valid_until: Option[DateTime] = None,
                           links: Option[Seq[HateoasLink]] = None
-                          )  extends RelatedResource
+                          ) extends RelatedResource
 
 object AuthorizationState extends Enumeration with EnumFormat {
   val Voided = Value("voided")
@@ -46,11 +47,11 @@ object Authorization {
 
   implicit val format = Json.format[Authorization]
 
-  case class Capture(amount: Amount, is_final_capture: Boolean = false)
+  case class Capture(amount: Amount, is_final_capture: Boolean = false) extends Domain
 
   implicit val cf = Json.format[Capture]
 
-  case class Reauthorize(amount: Amount)
+  case class Reauthorize(amount: Amount) extends Domain
 
   implicit val rf = Json.format[Reauthorize]
 }

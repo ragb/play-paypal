@@ -2,13 +2,14 @@ name := "play-paypal"
 
 organization := "play-infra"
 
-version := "0.1.0"
+version := "0.2-SNAPSHOT"
 
 libraryDependencies ++= Seq(
-  ws, cache
+  ws, cache,
+  "com.github.alari" %% "wscalacl" % "0.1-SNAPSHOT"
 )
 
-crossScalaVersions := Seq("2.10.4", "2.11.1")
+crossScalaVersions := Seq("2.10.4", "2.11.3")
 
 lazy val root = (project in file(".")).enablePlugins(play.PlayScala)
 
@@ -25,3 +26,4 @@ publishTo := Some(Resolver.file("file",  new File( "/mvn-repo" )) )
 
 testOptions in Test += Tests.Argument("junitxml")
 
+resolvers +=  "quonb" at "http://repo.quonb.org/"

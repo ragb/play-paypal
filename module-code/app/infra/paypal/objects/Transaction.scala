@@ -1,5 +1,6 @@
 package infra.paypal.objects
 
+import infra.paypal.Codomain
 import play.api.libs.json._
 
 /**
@@ -24,7 +25,7 @@ case class Transaction(amount: Amount,
   })
 }
 
-trait RelatedResource
+trait RelatedResource extends Codomain
 
 object RelatedResource {
   implicit val format = new Format[RelatedResource] {
