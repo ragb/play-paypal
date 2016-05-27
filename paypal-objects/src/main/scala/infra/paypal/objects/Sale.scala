@@ -22,7 +22,7 @@ import infra.paypal.format.{ EnumFormat, DateTimeFormat }
 case class Sale(
   id: String,
   amount: Amount,
-  description: String,
+  description: Option[String],
   create_time: Option[DateTime] = None,
   state: Option[SaleState.Value] = None,
   sale_id: Option[String] = None,
