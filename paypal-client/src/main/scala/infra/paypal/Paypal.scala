@@ -20,6 +20,9 @@ import akka.util.Timeout
 import scala.util.control.NonFatal
 import akka.event.Logging
 import akka.stream.Materializer
+import scala.util.Failure
+import scala.language.postfixOps
+import java.util.concurrent.TimeUnit
 
 /**
  * @author alari (name.alari@gmail.com)
@@ -32,6 +35,9 @@ class Paypal(implicit system: ActorSystem, mat: Materializer) extends RequestBui
   private val token = configuration.getString("paypal.token")
   private val secret = configuration.getString("paypal.secret")
   private val endPoint = configuration.getString("paypal.endPoint")
+  private val initializeAuthToken = configuration.getBoolean("paypal.initializeAuthToken")
+  private val initializeAuthTokenDelay = FiniteDuration(configuration.getDuration("paypal.initializeAuthTokenDelay").toNanos, TimeUnit.NANOSECONDS)
+
   def doRequest(r: HttpRequest) = Http().singleRequest(r)
   def requestToken = doRequest(Post(s"https://$endPoint/v1/oauth2/token", FormData("grant_type" -> "client_credentials"))
     .addHeader(Accept(MediaTypes.`application/json`))
@@ -57,6 +63,7 @@ class Paypal(implicit system: ActorSystem, mat: Materializer) extends RequestBui
       case GetTokenFailure(e) =>
         log.error(e, "Error retreeving token")
         retreevingToken = false
+        waitingForToken.foreach { _ ! Failure(e) }
         waitingForToken.clear()
     }
 
@@ -82,8 +89,11 @@ class Paypal(implicit system: ActorSystem, mat: Materializer) extends RequestBui
   import TokenActor.GetToken
 
   val tokenActor = system.actorOf(TokenActor.props)
+  if (initializeAuthToken) {
+    system.scheduler.scheduleOnce(initializeAuthTokenDelay, tokenActor, GetToken)
+  }
   def addRequestToken(request: HttpRequest) = {
-    implicit val timeout = Timeout(5 seconds)
+    implicit val timeout = Timeout(10 seconds)
     (tokenActor ? GetToken).mapTo[AccessToken] map { token =>
       request
         .addHeader(
