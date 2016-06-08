@@ -17,3 +17,9 @@ server.pid
 /dist/
 .cache
 .idea
+/.ensime*
+.classpath
+.project
+.cache-main
+.settings
+target/
