@@ -1,4 +1,7 @@
-play-paypal
+scala-paypal
 ==========
 
-Complete wrapper around Paypal REST API for Play Framework, written in Scala.
+Wrapper around paypal REST API in Scala using Akka Http and play-json.
+
+This is a fork of [play-paypal](https://github.com/alari/play-paypal). Most code and credits go there.
+
