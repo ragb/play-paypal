@@ -47,22 +47,26 @@ class Paypal(implicit system: ActorSystem, mat: Materializer) extends RequestBui
     import TokenActor._
 
     var accessToken: Option[AccessToken] = None
-    var tokenRetreevalTime: Long = 0
     var retreevingToken: Boolean = false
+    var tokenTime: Long = 0
     val waitingForToken = ListBuffer.empty[ActorRef]
     def receive = {
       case GetToken =>
-        accessToken.filter { t => (t.expires_in + tokenRetreevalTime) < (System.currentTimeMillis / 1000) }
+        accessToken.filter { t => (t.expires_in + tokenTime) < (System.currentTimeMillis / 1000) }
           .fold(requestNewToken(sender))(t => sender ! t)
       case token: AccessToken =>
         log.info(s"Got new access token expiring in ${token.expires_in}")
         accessToken = Some(token)
         retreevingToken = false
+        // be smart and retreeve the token before it expires
+        val secs = token.expires_in
+        context.system.scheduler.scheduleOnce(secs seconds, self, GetToken)
         waitingForToken foreach { _ ! token }
         waitingForToken.clear()
       case GetTokenFailure(e) =>
         log.error(e, "Error retreeving token")
         retreevingToken = false
+        tokenTime = 0
         waitingForToken.foreach { _ ! Failure(e) }
         waitingForToken.clear()
     }
@@ -71,8 +75,8 @@ class Paypal(implicit system: ActorSystem, mat: Materializer) extends RequestBui
       waitingForToken += ref
       if (!retreevingToken) {
         log.info("Retreeving new paypal authentication token")
+        tokenTime = System.currentTimeMillis / 1000
         retreevingToken = true
-        tokenRetreevalTime = System.currentTimeMillis() / 1000
         accessToken = None
         requestToken recover { case NonFatal(t) => GetTokenFailure(t) } pipeTo self
       }

@@ -1,7 +1,7 @@
 
 val baseSettings = Seq(
   organization := "com.ruiandrebatista",
-  version := "0.2.0",
+  version := "0.3.0",
   scalaVersion := "2.11.8",
   scalacOptions ++= Seq(
     "-unchecked",
