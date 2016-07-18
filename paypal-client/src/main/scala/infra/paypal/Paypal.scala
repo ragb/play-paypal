@@ -98,7 +98,7 @@ class Paypal(implicit system: ActorSystem, mat: Materializer) extends RequestBui
     def props = Props(new TokenActor)
   }
 
-  import TokenActor.GetToken
+  import TokenActor._
 
   val tokenActor = system.actorOf(TokenActor.props)
   if (initializeAuthToken) {
@@ -116,7 +116,7 @@ class Paypal(implicit system: ActorSystem, mat: Materializer) extends RequestBui
   def authenticatedRequest[R](request: HttpRequest)(implicit reads: Reads[R]) = {
     def go(retry: Boolean): Future[R] = {
       def authRequest = retrieveToken map addRequestToken(request)
-      authRequest ~>  {_ flatMap doRequest} ~> readResponse(reads) recoverWith {
+      authRequest ~> { _ flatMap doRequest } ~> readResponse(reads) recoverWith {
         case ApiError(401, _, _) if retry => go(false)
       }
     }
