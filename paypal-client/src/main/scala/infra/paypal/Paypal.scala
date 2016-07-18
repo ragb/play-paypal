@@ -54,14 +54,14 @@ class Paypal(implicit system: ActorSystem, mat: Materializer) extends RequestBui
         accessToken.filter { t => (t.expires_in + tokenTime) < (System.currentTimeMillis / 1000) }
           .fold({
             waitingForToken += sender
-            requestNewToken
+            requestNewToken()
           })(t => sender ! t)
       case RefreshToken =>
-        requestNewToken
+        requestNewToken()
     }
 
     def waitingForTokenResponse: Receive = {
-            case token: AccessToken =>
+      case token: AccessToken =>
         log.info(s"Got new access token expiring in ${token.expires_in}")
         accessToken = Some(token)
         // be smart and retreeve the token before it expires
@@ -77,15 +77,15 @@ class Paypal(implicit system: ActorSystem, mat: Materializer) extends RequestBui
         waitingForToken.clear()
         context.become(receive)
       case GetToken =>
-waitingForToken += sender        
+        waitingForToken += sender
     }
-    
+
     private def requestNewToken() {
-        log.info("Retreeving new paypal authentication token")
-        tokenTime = System.currentTimeMillis / 1000
-        accessToken = None
-        context.become(waitingForTokenResponse)
-        requestToken recover { case NonFatal(t) => GetTokenFailure(t) } pipeTo self
+      log.info("Retreeving new paypal authentication token")
+      tokenTime = System.currentTimeMillis / 1000
+      accessToken = None
+      context.become(waitingForTokenResponse)
+      requestToken recover { case NonFatal(t) => GetTokenFailure(t) } pipeTo self
 
     }
 
@@ -102,27 +102,27 @@ waitingForToken += sender
 
   val tokenActor = system.actorOf(TokenActor.props)
   if (initializeAuthToken) {
-    system.scheduler.scheduleOnce(initializeAuthTokenDelay, tokenActor, GetToken)
+    system.scheduler.scheduleOnce(initializeAuthTokenDelay, tokenActor, RefreshToken)
   }
-    implicit val timeout = Timeout(10 seconds)
-    private def retrieveToken =     (tokenActor ? GetToken).mapTo[AccessToken]
-private def addRequestToken(request: HttpRequest)(token: AccessToken) = {
-      request
-        .addHeader(
-          Authorization(OAuth2BearerToken(token.access_token))
-        )
-    }
-    
+  implicit val timeout = Timeout(10 seconds)
+  private def retrieveToken = (tokenActor ? GetToken).mapTo[AccessToken]
+  private def addRequestToken(request: HttpRequest)(token: AccessToken) = {
+    request
+      .addHeader(
+        Authorization(OAuth2BearerToken(token.access_token))
+      )
+  }
+
   def authenticatedRequest[R](request: HttpRequest)(implicit reads: Reads[R]) = {
     def go(retry: Boolean): Future[R] = {
-    implicit val _ = Timeout(10 seconds)
-    val authRequest = retrieveToken map addRequestToken(request)
-    (authRequest flatMap doRequest) ~> readResponse(reads) recoverWith {
-      case ApiError(401, _, _) if retry => go(false)
-    }
+      def authRequest = retrieveToken map addRequestToken(request)
+      authRequest ~>  {_ flatMap doRequest} ~> readResponse(reads) recoverWith {
+        case ApiError(401, _, _) if retry => go(false)
+      }
     }
     go(true)
   }
+
   def post[C, R](resource: String, content: C)(implicit reads: Reads[R], writes: Writes[C]) = authenticatedRequest[R](Post(s"https://$endPoint/v1/$resource", content).addHeader(Accept(MediaTypes.`application/json`)))
   def get[R](resource: String)(implicit reads: Reads[R]) = authenticatedRequest[R](Get(s"https://$endPoint/v1/$resource").addHeader(Accept(MediaTypes.`application/json`)))
 
